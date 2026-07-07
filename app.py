@@ -1,73 +1,217 @@
-
 import streamlit as st
 import pandas as pd
-import pickle
+import joblib
 import plotly.express as px
-import plotly.figure_factory as ff
 
-st.set_page_config(page_title="House Price Prediction", layout="wide")
+# ==========================
+# PAGE CONFIG
+# ==========================
+st.set_page_config(
+    page_title="House Price Prediction",
+    page_icon="🏠",
+    layout="wide"
+)
 
+# ==========================
+# LOAD DATA
+# ==========================
 @st.cache_data
 def load_data():
     return pd.read_csv("Housing.csv")
 
 df = load_data()
 
+# ==========================
+# LOAD MODEL
+# ==========================
 @st.cache_resource
 def load_model():
-    with open("house_model.pkl", "rb") as f:
-        return pickle.load(f)
+    return joblib.load("house_model.pkl")
 
-st.title("🏠 House Price Prediction Dashboard")
+model = load_model()
 
-page = st.sidebar.radio("Navigation", ["Dashboard", "Prediction"])
+# ==========================
+# SIDEBAR
+# ==========================
+st.sidebar.title("Navigation")
 
+page = st.sidebar.radio(
+    "Go To",
+    ["Dashboard", "Prediction"]
+)
+
+# ==========================
+# DASHBOARD
+# ==========================
 if page == "Dashboard":
-    st.header("Analytics Dashboard")
 
-    c1,c2,c3,c4 = st.columns(4)
-    c1.metric("Total Houses", len(df))
-    c2.metric("Average Price", f"{df['price'].mean():,.0f}")
-    c3.metric("Max Price", f"{df['price'].max():,.0f}")
-    c4.metric("Min Price", f"{df['price'].min():,.0f}")
+    st.title("🏠 House Price Analytics Dashboard")
 
-    st.plotly_chart(px.histogram(df, x="price", title="Price Distribution"), use_container_width=True)
+    col1, col2, col3, col4 = st.columns(4)
 
-    if "area" in df.columns:
-        st.plotly_chart(px.scatter(df, x="area", y="price", title="Area vs Price"), use_container_width=True)
-
-    numeric = df.select_dtypes(include="number")
-    corr = numeric.corr()
-    fig = ff.create_annotated_heatmap(
-        z=corr.values,
-        x=list(corr.columns),
-        y=list(corr.index)
+    col1.metric(
+        "Total Houses",
+        len(df)
     )
-    st.plotly_chart(fig, use_container_width=True)
 
-    for col in ["bedrooms","bathrooms","stories","parking"]:
-        if col in df.columns:
-            st.plotly_chart(px.box(df, x=col, y="price", title=f"{col} vs Price"), use_container_width=True)
+    col2.metric(
+        "Average Price",
+        f"₹ {df['price'].mean():,.0f}"
+    )
 
+    col3.metric(
+        "Maximum Price",
+        f"₹ {df['price'].max():,.0f}"
+    )
+
+    col4.metric(
+        "Minimum Price",
+        f"₹ {df['price'].min():,.0f}"
+    )
+
+    st.markdown("---")
+
+    fig1 = px.histogram(
+        df,
+        x="price",
+        nbins=30,
+        title="Price Distribution"
+    )
+    st.plotly_chart(fig1, use_container_width=True)
+
+    fig2 = px.scatter(
+        df,
+        x="area",
+        y="price",
+        color="bedrooms",
+        title="Area vs Price"
+    )
+    st.plotly_chart(fig2, use_container_width=True)
+
+    if "furnishingstatus" in df.columns:
+        fig3 = px.box(
+            df,
+            x="furnishingstatus",
+            y="price",
+            title="Price by Furnishing Status"
+        )
+        st.plotly_chart(fig3, use_container_width=True)
+
+    if "bedrooms" in df.columns:
+        fig4 = px.bar(
+            df.groupby("bedrooms")["price"].mean().reset_index(),
+            x="bedrooms",
+            y="price",
+            title="Average Price by Bedrooms"
+        )
+        st.plotly_chart(fig4, use_container_width=True)
+
+    if "bathrooms" in df.columns:
+        fig5 = px.bar(
+            df.groupby("bathrooms")["price"].mean().reset_index(),
+            x="bathrooms",
+            y="price",
+            title="Average Price by Bathrooms"
+        )
+        st.plotly_chart(fig5, use_container_width=True)
+
+# ==========================
+# PREDICTION PAGE
+# ==========================
 else:
-    st.header("Predict House Price")
 
-    model = load_model()
+    st.title("🏠 Predict House Price")
 
-    inputs = {}
-    for col in df.columns:
-        if col == "price":
-            continue
+    area = st.number_input("Area", min_value=500, value=5000)
 
-        if df[col].dtype == "object":
-            inputs[col] = st.selectbox(col, sorted(df[col].dropna().unique()))
-        else:
-            inputs[col] = st.number_input(
-                col,
-                value=float(df[col].median())
-            )
+    bedrooms = st.number_input(
+        "Bedrooms",
+        min_value=1,
+        max_value=10,
+        value=3
+    )
 
-    if st.button("Predict"):
-        sample = pd.DataFrame([inputs])
-        pred = model.predict(sample)[0]
-        st.success(f"Predicted House Price: ₹ {pred:,.2f}")
+    bathrooms = st.number_input(
+        "Bathrooms",
+        min_value=1,
+        max_value=10,
+        value=2
+    )
+
+    stories = st.number_input(
+        "Stories",
+        min_value=1,
+        max_value=10,
+        value=2
+    )
+
+    mainroad = st.selectbox(
+        "Main Road",
+        ["yes", "no"]
+    )
+
+    guestroom = st.selectbox(
+        "Guest Room",
+        ["yes", "no"]
+    )
+
+    basement = st.selectbox(
+        "Basement",
+        ["yes", "no"]
+    )
+
+    hotwaterheating = st.selectbox(
+        "Hot Water Heating",
+        ["yes", "no"]
+    )
+
+    airconditioning = st.selectbox(
+        "Air Conditioning",
+        ["yes", "no"]
+    )
+
+    parking = st.number_input(
+        "Parking",
+        min_value=0,
+        max_value=10,
+        value=1
+    )
+
+    prefarea = st.selectbox(
+        "Preferred Area",
+        ["yes", "no"]
+    )
+
+    furnishingstatus = st.selectbox(
+        "Furnishing Status",
+        [
+            "furnished",
+            "semi-furnished",
+            "unfurnished"
+        ]
+    )
+
+    if st.button("Predict Price"):
+
+        input_df = pd.DataFrame({
+            "area": [area],
+            "bedrooms": [bedrooms],
+            "bathrooms": [bathrooms],
+            "stories": [stories],
+            "mainroad": [mainroad],
+            "guestroom": [guestroom],
+            "basement": [basement],
+            "hotwaterheating": [hotwaterheating],
+            "airconditioning": [airconditioning],
+            "parking": [parking],
+            "prefarea": [prefarea],
+            "furnishingstatus": [furnishingstatus]
+        })
+
+        prediction = model.predict(input_df)[0]
+
+        st.success(
+            f"Predicted House Price: ₹ {prediction:,.0f}"
+        )
+
+        st.balloons()
